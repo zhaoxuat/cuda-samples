@@ -204,7 +204,6 @@ int matrixMultiply(int argc, char **argv, int devID, sMatrixSize &matrix_size) {
   cudaDeviceProp deviceProp;
 
   checkCudaErrors(cudaGetDeviceProperties(&deviceProp, devID));
-
   int block_size = 32;
 
   // set seed for rand()
@@ -301,7 +300,14 @@ int matrixMultiply(int argc, char **argv, int devID, sMatrixSize &matrix_size) {
         (flopsPerMatrixMul * 1.0e-9f) / (msecPerMatrixMul / 1000.0f);
     printf("Performance= %.2f GFlop/s, Time= %.3f msec, Size= %.0f Ops\n",
            gigaFlops, msecPerMatrixMul, flopsPerMatrixMul);
-
+  
+    if (checkCmdLineFlag(argc, (const char **)argv, "baseFlops")) {
+        int baseFlops = 0;
+        baseFlops = getCmdLineArgumentInt(argc, (const char **)argv, "baseFlops");
+        if (gigaFlops < double(baseFlops)) {
+            printf("Performance actual %.2f GFlop/s small_than_base expect %.2f GFlop/s\n", gigaFlops, double(baseFlops));
+        }
+    }
     // copy result from device to host
     checkCudaErrors(
         cudaMemcpy(h_CUBLAS, d_C, mem_size_C, cudaMemcpyDeviceToHost));
@@ -352,6 +358,11 @@ int matrixMultiply(int argc, char **argv, int devID, sMatrixSize &matrix_size) {
 // Program main
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char **argv) {
+  if (checkCmdLineFlag(argc, (const char **)argv, "help") ||
+      checkCmdLineFlag(argc, (const char **)argv, "?")) {
+    printf("Usage baseFlops=n (n >= 0 for base GFlop)\n");
+    exit(EXIT_SUCCESS);
+  }
   printf("[Matrix Multiply CUBLAS] - Starting...\n");
 
   int devID = 0, sizeMult = 5;

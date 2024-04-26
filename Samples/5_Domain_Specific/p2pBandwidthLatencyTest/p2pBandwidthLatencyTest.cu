@@ -33,6 +33,9 @@
 
 using namespace std;
 
+int p2pUnidirect = 0;
+int p2pBidirect = 0;
+
 const char *sSampleName = "P2P (Peer-to-Peer) GPU Bandwidth Latency Test";
 
 typedef enum {
@@ -101,6 +104,8 @@ void printHelp(void) {
       "corresponding results.\n \t\tDefault used is P2P write operation.\n");
   printf("--sm_copy                      Use SM intiated p2p transfers instead of Copy Engine\n");
   printf("--numElems=<NUM_OF_INT_ELEMS>  Number of integer elements to be used in p2p copy.\n");
+  printf("--p2p_unidirect=<Base_Bandwidth> Unidirectional P2P=Enabled Compreae Base Bandwidth.\n");
+  printf("--p2p_bidirect=<Base_Bandwidth>  Bidirectional P2P=Enabled Compreae Base Bandwidth.\n");
 }
 
 void checkP2Paccess(int numGPUs) {
@@ -269,7 +274,17 @@ void outputBandwidthMatrix(int numElems, int numGPUs, bool p2p, P2PDataTransfer 
 
     printf("\n");
   }
-
+  if (p2p && p2pUnidirect > 0) {
+    printf("Unidirectional P2P=Enabled, Base [%d] (GB/s)\n", p2pUnidirect);
+    for (int i = 0; i < numGPUs; i++) {
+      for (int j = 0; j < numGPUs; j++) {
+        auto target = bandwidthMatrix[i * numGPUs + j];
+        if (target < double(p2pUnidirect)) {
+          printf("GPU %d -> GPU %d, actual %6.02f (GB/s) small_than_base expect %d (GB/s)\n", i, j, target, p2pUnidirect);
+        }
+      }
+    }
+  }
   for (int d = 0; d < numGPUs; d++) {
     cudaSetDevice(d);
     cudaFree(buffers[d]);
@@ -424,7 +439,19 @@ void outputBidirectionalBandwidthMatrix(int numElems, int numGPUs, bool p2p) {
 
     printf("\n");
   }
-
+  if (p2p && p2pBidirect > 0) {
+    printf("Bidirectional P2P=Enabled, Base [%d] (GB/s)\n", p2pBidirect);
+    for (int i = 0; i < numGPUs; i++) {
+      for (int j = 0; j < numGPUs; j++) {
+        if (i != j) {
+          auto target = bandwidthMatrix[i * numGPUs + j];
+          if (target < double(p2pBidirect)) {
+            printf("GPU %d -> GPU %d, actual %6.02f (GB/s) small_than_base expect %d (GB/s)\n", i, j, target, p2pBidirect);
+          }
+        }
+      }
+    }
+  }
   for (int d = 0; d < numGPUs; d++) {
     cudaSetDevice(d);
     cudaFree(buffers[d]);
@@ -626,6 +653,14 @@ int main(int argc, char **argv) {
   // number of elements of int to be used in copy.
   if (checkCmdLineFlag(argc, (const char **)argv, "numElems")) {
     numElems = getCmdLineArgumentInt(argc, (const char **)argv, "numElems");
+  }
+
+  if (checkCmdLineFlag(argc, (const char **)argv, "p2p_unidirect")) {
+    p2pUnidirect = getCmdLineArgumentInt(argc, (const char **)argv, "p2p_unidirect");;
+  }
+
+  if (checkCmdLineFlag(argc, (const char **)argv, "p2p_bidirect")) {
+    p2pBidirect = getCmdLineArgumentInt(argc, (const char **)argv, "p2p_bidirect");;
   }
 
   printf("[%s]\n", sSampleName);
